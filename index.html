@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>名片管家</title>
+
+<!-- PWA Meta -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="名片管家">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#F26522">
+
+<!-- PWA Links -->
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --orange: #F26522;
+  --orange-d: #D4521A;
+  --orange-pale: #FFF3ED;
+  --dark: #1A1208;
+  --mid: #7A6A5E;
+  --light: #F9F5F2;
+  --white: #FFFFFF;
+  --safe-top: env(safe-area-inset-top, 44px);
+  --safe-bottom: env(safe-area-inset-bottom, 20px);
+  --radius: 20px;
+}
+
+html, body {
+  height: 100%; width: 100%;
+  overflow: hidden;
+  font-family: 'Noto Sans TC', -apple-system, sans-serif;
+  background: var(--dark);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── APP SHELL ── */
+#app {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  background: var(--light);
+  overflow: hidden;
+}
+
+/* ── VIEWS ── */
+.view {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  background: var(--light);
+  transition: transform 0.38s cubic-bezier(0.4,0,0.2,1);
+  will-change: transform;
+  overflow: hidden;
+}
+.view.off-right { transform: translateX(100%); }
+.view.off-left  { transform: translateX(-30%); }
+
+/* ── SCROLL AREAS ── */
+.scroll {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.scroll::-webkit-scrollbar { display: none; }
+
+/* ── STATUS BAR SPACER ── */
+.sb-space {
+  height: var(--safe-top);
+  background: var(--orange);
+  flex-shrink: 0;
+}
+
+/* ── HEADER ── */
+.header {
+  background: var(--orange);
+  padding: 16px 20px 24px;
+  flex-shrink: 0;
+}
+.header-top {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.header h1 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 28px; color: white; letter-spacing: -0.3px;
+}
+.header-sub { font-size: 12px; color: rgba(255,255,255,0.75); margin-top: 2px; }
+.icon-btn {
+  width: 38px; height: 38px; border-radius: 12px;
+  background: rgba(255,255,255,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; cursor: pointer; border: none;
+  color: white; transition: background 0.15s;
+}
+.icon-btn:active { background: rgba(255,255,255,0.35); }
+
+/* ── SEARCH ── */
+.search-wrap {
+  background: rgba(255,255,255,0.2);
+  border-radius: 14px; padding: 10px 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.search-wrap input {
+  background: none; border: none; outline: none;
+  color: white; font-family: inherit; font-size: 15px; flex: 1;
+}
+.search-wrap input::placeholder { color: rgba(255,255,255,0.6); }
+.search-icon { font-size: 16px; opacity: 0.8; }
+
+/* ── STATS ── */
+.stats {
+  display: flex; gap: 10px; padding: 14px 16px 4px;
+  flex-shrink: 0;
+}
+.stat {
+  background: white; border-radius: 14px; padding: 10px 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.07); flex: 1;
+}
+.stat strong { display: block; font-size: 22px; color: var(--orange); font-weight: 700; line-height: 1; }
+.stat span { font-size: 11px; color: var(--mid); margin-top: 2px; display: block; }
+
+/* ── SECTION LABEL ── */
+.sec { font-size: 11px; font-weight: 700; color: var(--orange); letter-spacing: 1.8px; text-transform: uppercase; padding: 14px 18px 6px; }
+
+/* ── CARD LIST ITEM ── */
+.card-item {
+  background: white; border-radius: 18px; margin: 0 14px 10px;
+  padding: 14px 16px; display: flex; align-items: center; gap: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06); cursor: pointer;
+  position: relative; overflow: hidden;
+  animation: fadeUp 0.4s ease backwards;
+}
+.card-item::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 4px; background: var(--orange);
+}
+.card-item:active { opacity: 0.85; transform: scale(0.985); }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── AVATAR ── */
+.av {
+  width: 50px; height: 50px; border-radius: 15px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 700; color: white;
+}
+.av-lg {
+  width: 68px; height: 68px; border-radius: 20px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 700; color: white;
+}
+
+/* ── CARD INFO ── */
+.ci { flex: 1; min-width: 0; }
+.ci-name { font-size: 16px; font-weight: 600; color: var(--dark); }
+.ci-title { font-size: 12px; color: var(--mid); margin-top: 2px; }
+.ci-co { font-size: 12px; color: var(--orange); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chevron { color: #CCC; font-size: 20px; flex-shrink: 0; }
+
+/* ── BOTTOM NAV ── */
+.bottom-nav {
+  background: white; border-top: 1px solid rgba(0,0,0,0.06);
+  display: flex; align-items: center; justify-content: space-around;
+  padding: 10px 20px;
+  padding-bottom: calc(10px + var(--safe-bottom));
+  flex-shrink: 0;
+}
+.nav-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  font-size: 10px; color: #BBB; cursor: pointer; border: none; background: none;
+  font-family: inherit; padding: 4px 16px;
+}
+.nav-btn.active { color: var(--orange); }
+.nav-btn .ni { font-size: 24px; }
+.fab-btn {
+  width: 58px; height: 58px; background: var(--orange); border-radius: 20px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; color: white; border: none; cursor: pointer;
+  box-shadow: 0 6px 22px rgba(242,101,34,0.42);
+  margin-bottom: 6px; transition: transform 0.15s, box-shadow 0.15s;
+}
+.fab-btn:active { transform: scale(0.91); box-shadow: 0 3px 12px rgba(242,101,34,0.3); }
+
+/* ── DETAIL VIEW ── */
+.detail-head {
+  background: var(--orange);
+  padding: 16px 20px 32px;
+  flex-shrink: 0;
+}
+.back-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 18px; cursor: pointer;
+}
+.back-row span { color: rgba(255,255,255,0.9); font-size: 16px; }
+.back-row p { color: white; font-size: 15px; font-weight: 500; }
+.detail-name { font-family: 'DM Serif Display', serif; font-size: 26px; color: white; margin: 10px 0 4px; }
+.detail-role { font-size: 13px; color: rgba(255,255,255,0.82); }
+
+/* ── CARD VISUAL ── */
+.card-visual {
+  background: white; border-radius: 20px; margin: -18px 16px 14px;
+  padding: 18px 20px; box-shadow: 0 10px 36px rgba(242,101,34,0.18);
+  position: relative; overflow: hidden; flex-shrink: 0;
+}
+.card-visual::after {
+  content: ''; position: absolute; right: -16px; top: -16px;
+  width: 80px; height: 80px; background: var(--orange-pale); border-radius: 50%;
+}
+.cv-name { font-size: 18px; font-weight: 700; color: var(--dark); }
+.cv-title { font-size: 12px; color: var(--mid); margin-top: 3px; }
+.cv-co { font-size: 13px; color: var(--orange); font-weight: 600; margin-top: 10px; }
+.cv-logo {
+  position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+  width: 42px; height: 42px; border-radius: 12px;
+  background: var(--orange-pale); display: flex; align-items: center;
+  justify-content: center; font-size: 22px; z-index: 1;
+}
+
+/* ── ACTION BUTTONS ── */
+.action-row { display: flex; gap: 10px; padding: 0 16px 12px; flex-shrink: 0; }
+.action-btn {
+  flex: 1; border-radius: 14px; padding: 13px; font-family: inherit;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: transform 0.15s; border: none;
+}
+.action-btn.primary { background: var(--orange); color: white; }
+.action-btn.outline { background: white; color: var(--orange); border: 1.5px solid var(--orange); }
+.action-btn:active { transform: scale(0.95); }
+
+/* ── INFO SECTION ── */
+.info-sec {
+  background: white; border-radius: 18px; margin: 0 14px 10px;
+  padding: 14px 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+.info-sec h3 {
+  font-size: 11px; font-weight: 700; color: var(--orange);
+  letter-spacing: 1.8px; text-transform: uppercase; margin-bottom: 12px;
+}
+.info-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 0; border-bottom: 1px solid #F5F0EC;
+}
+.info-row:last-child { border-bottom: none; }
+.info-icon {
+  width: 36px; height: 36px; background: var(--orange-pale); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;
+}
+.info-label { font-size: 11px; color: var(--mid); margin-bottom: 2px; }
+.info-val { font-size: 14px; color: var(--dark); font-weight: 500; }
+
+/* ── TAGS ── */
+.tags { display: flex; flex-wrap: wrap; gap: 7px; padding-top: 4px; }
+.tag {
+  background: var(--orange-pale); color: var(--orange);
+  border-radius: 8px; padding: 5px 11px; font-size: 12px; font-weight: 600;
+}
+
+/* ── SCAN VIEW ── */
+.scan-view { background: #111; }
+.scan-head {
+  background: #111; color: white;
+  padding: 14px 20px; display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+}
+.scan-head h2 { font-size: 18px; font-weight: 600; }
+.viewfinder {
+  flex: 1; position: relative; display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.vf-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+}
+.vf-card-mock {
+  width: 300px; height: 168px; background: white; border-radius: 14px;
+  padding: 20px; box-shadow: 0 0 0 4000px rgba(0,0,0,0.55);
+  position: relative; overflow: hidden;
+}
+.vm-name { font-size: 16px; font-weight: 700; color: #1A1208; }
+.vm-title { font-size: 11px; color: #999; margin-top: 3px; }
+.vm-co { font-size: 12px; color: #F26522; font-weight: 600; margin-top: 10px; }
+.vm-info { font-size: 10px; color: #AAA; line-height: 1.9; margin-top: 5px; }
+.scan-line {
+  position: absolute; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #F26522 40%, #FF8C42 60%, transparent 100%);
+  animation: scanAnim 2s ease-in-out infinite;
+  box-shadow: 0 0 16px #F26522, 0 0 4px #F26522;
+}
+@keyframes scanAnim { 0%,100%{top:8%} 50%{top:92%} }
+.corners { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.corners-inner { position: relative; width: 310px; height: 178px; }
+.corner {
+  position: absolute; width: 26px; height: 26px;
+  border-color: #F26522; border-style: solid; opacity: 0.95;
+}
+.c-tl{top:0;left:0;border-width:3px 0 0 3px;border-radius:5px 0 0 0}
+.c-tr{top:0;right:0;border-width:3px 3px 0 0;border-radius:0 5px 0 0}
+.c-bl{bottom:0;left:0;border-width:0 0 3px 3px;border-radius:0 0 0 5px}
+.c-br{bottom:0;right:0;border-width:0 3px 3px 0;border-radius:0 0 5px 0}
+
+.scan-bottom {
+  background: #111; padding: 22px 24px;
+  padding-bottom: calc(22px + var(--safe-bottom));
+  flex-shrink: 0;
+}
+.scan-tip { font-size: 13px; color: rgba(255,255,255,0.45); text-align: center; margin-bottom: 20px; }
+.shutter-wrap { display: flex; justify-content: center; }
+.shutter {
+  width: 72px; height: 72px; border-radius: 50%; border: none;
+  background: var(--orange); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px; box-shadow: 0 6px 28px rgba(242,101,34,0.45);
+  outline: 4px solid rgba(255,255,255,0.18); transition: transform 0.15s;
+}
+.shutter:active { transform: scale(0.88); }
+
+/* ── ADD CARD VIEW ── */
+.form-head {
+  background: var(--orange); padding: 16px 20px 28px; flex-shrink: 0;
+}
+.form-head h2 { font-size: 22px; font-weight: 700; color: white; margin-top: 14px; }
+.form-body { padding: 12px 16px 80px; }
+.field-group { background: white; border-radius: 18px; margin-bottom: 12px; padding: 0 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+.field-group h3 { font-size: 11px; font-weight: 700; color: var(--orange); letter-spacing: 1.8px; text-transform: uppercase; padding: 14px 0 6px; }
+.field {
+  display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid #F5F0EC; padding: 10px 0;
+}
+.field:last-child { border-bottom: none; }
+.field-icon { font-size: 18px; width: 28px; text-align: center; }
+.field input, .field textarea {
+  flex: 1; border: none; outline: none; font-family: inherit;
+  font-size: 15px; color: var(--dark); background: none; resize: none;
+}
+.field input::placeholder, .field textarea::placeholder { color: #CCC; }
+.save-btn {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--orange); color: white; border: none;
+  font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer;
+  padding: 18px 24px; padding-bottom: calc(18px + var(--safe-bottom));
+  letter-spacing: 0.5px;
+}
+.save-btn:active { background: var(--orange-d); }
+
+/* ── MY PROFILE VIEW ── */
+.profile-head {
+  background: var(--orange); padding: 16px 20px 40px; flex-shrink: 0; text-align: center;
+}
+.profile-av {
+  width: 90px; height: 90px; border-radius: 28px; margin: 10px auto 12px;
+  background: rgba(255,255,255,0.25); display: flex; align-items: center;
+  justify-content: center; font-size: 38px; font-weight: 700; color: white;
+}
+.profile-name { font-family: 'DM Serif Display', serif; font-size: 24px; color: white; }
+.profile-role { font-size: 13px; color: rgba(255,255,255,0.8); margin-top: 4px; }
+.qr-card {
+  background: white; border-radius: 20px; margin: -22px 16px 14px;
+  padding: 20px; box-shadow: 0 10px 36px rgba(242,101,34,0.15); text-align: center;
+}
+.qr-box {
+  width: 120px; height: 120px; border-radius: 14px; background: #F5F0EC;
+  margin: 0 auto 12px; display: flex; align-items: center; justify-content: center;
+  font-size: 48px;
+}
+.qr-desc { font-size: 13px; color: var(--mid); }
+.menu-item {
+  background: white; border-radius: 18px; margin: 0 14px 10px;
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  cursor: pointer;
+}
+.menu-item:active { opacity: 0.8; }
+.menu-icon { width: 40px; height: 40px; border-radius: 12px; background: var(--orange-pale); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.menu-label { flex: 1; font-size: 15px; color: var(--dark); font-weight: 500; }
+.menu-arrow { color: #CCC; font-size: 18px; }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: calc(90px + var(--safe-bottom)); left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--dark); color: white; padding: 12px 22px;
+  border-radius: 40px; font-size: 14px; font-weight: 500;
+  opacity: 0; transition: all 0.28s cubic-bezier(0.4,0,0.2,1);
+  z-index: 999; white-space: nowrap; pointer-events: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── PWA INSTALL BANNER ── */
+#install-banner {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: white; border-top: 1px solid rgba(242,101,34,0.2);
+  padding: 16px 20px; padding-bottom: calc(16px + var(--safe-bottom));
+  z-index: 888; box-shadow: 0 -8px 32px rgba(0,0,0,0.1);
+  display: none;
+}
+#install-banner.show { display: block; }
+.install-content { display: flex; align-items: center; gap: 12px; }
+.install-icon { width: 48px; height: 48px; border-radius: 12px; background: var(--orange); display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.install-text { flex: 1; }
+.install-text strong { font-size: 14px; color: var(--dark); display: block; }
+.install-text span { font-size: 12px; color: var(--mid); }
+.install-btn { background: var(--orange); color: white; border: none; border-radius: 10px; padding: 8px 16px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.install-close { position: absolute; top: 12px; right: 16px; font-size: 20px; color: #CCC; cursor: pointer; border: none; background: none; }
+
+/* ── iOS GUIDE ── */
+.ios-guide {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  z-index: 1000; display: flex; align-items: flex-end; display: none;
+}
+.ios-guide.show { display: flex; }
+.ios-guide-card {
+  background: white; width: 100%; border-radius: 24px 24px 0 0;
+  padding: 24px 24px calc(24px + var(--safe-bottom));
+}
+.ios-step {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 0; border-bottom: 1px solid #F5F0EC;
+}
+.ios-step:last-child { border-bottom: none; }
+.ios-step-num {
+  width: 32px; height: 32px; border-radius: 10px; background: var(--orange);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; color: white; flex-shrink: 0;
+}
+.ios-step p { font-size: 14px; color: var(--dark); line-height: 1.5; }
+.ios-step strong { color: var(--orange); }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ═══ VIEW: LIST ═══ -->
+  <div class="view" id="v-list">
+    <div class="sb-space"></div>
+    <div class="header">
+      <div class="header-top">
+        <div>
+          <h1>名片管家</h1>
+          <div class="header-sub">Business Card Manager</div>
+        </div>
+        <button class="icon-btn" onclick="showView('v-add')">＋</button>
+      </div>
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-q" placeholder="搜尋姓名、公司、職位..." autocomplete="off">
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><strong id="total-count">6</strong><span>張名片</span></div>
+      <div class="stat"><strong>5</strong><span>家公司</span></div>
+      <div class="stat"><strong>3</strong><span>本週新增</span></div>
+    </div>
+
+    <div class="sec">最近聯絡</div>
+
+    <div class="scroll" style="padding-bottom: 90px;">
+      <div id="card-list"></div>
+      <div id="empty-state" style="display:none; text-align:center; padding:40px 20px; color:#CCC;">
+        <div style="font-size:48px; margin-bottom:12px;">🔍</div>
+        <div style="font-size:15px;">找不到符合的名片</div>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <button class="nav-btn active" onclick="switchTab(0)">
+        <span class="ni">📇</span>名片
+      </button>
+      <button class="fab-btn" onclick="showView('v-scan')">📷</button>
+      <button class="nav-btn" onclick="switchTab(1)">
+        <span class="ni">👤</span>我的
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ VIEW: DETAIL ═══ -->
+  <div class="view off-right" id="v-detail">
+    <div class="sb-space"></div>
+    <div class="detail-head">
+      <div class="back-row" onclick="goBack()">
+        <span>‹</span><p>返回名片</p>
+      </div>
+      <div class="av-lg" id="d-av">梁</div>
+      <div class="detail-name" id="d-name">梁伯萬</div>
+      <div class="detail-role" id="d-role">業務總監 · 聯發科技</div>
+    </div>
+
+    <div class="scroll">
+      <div class="card-visual" style="flex-shrink:0; margin-top:-18px;">
+        <div class="cv-name" id="cv-name">梁伯萬</div>
+        <div class="cv-title" id="cv-title">業務總監</div>
+        <div class="cv-co" id="cv-co">聯發科技股份有限公司</div>
+        <div class="cv-logo">💼</div>
+      </div>
+
+      <div class="action-row" style="flex-shrink:0; padding-top:4px;">
+        <button class="action-btn primary" id="btn-call" onclick="doCall()">📞 撥打電話</button>
+        <button class="action-btn outline" id="btn-mail" onclick="doMail()">✉️ 寄送郵件</button>
+      </div>
+
+      <div class="info-sec">
+        <h3>基本資訊</h3>
+        <div class="info-row"><div class="info-icon">👤</div><div><div class="info-label">姓名</div><div class="info-val" id="di-name">梁伯萬</div></div></div>
+        <div class="info-row"><div class="info-icon">💼</div><div><div class="info-label">職稱</div><div class="info-val" id="di-title">業務總監</div></div></div>
+        <div class="info-row"><div class="info-icon">🏢</div><div><div class="info-label">公司</div><div class="info-val" id="di-co">聯發科技股份有限公司</div></div></div>
+      </div>
+
+      <div class="info-sec">
+        <h3>聯絡方式</h3>
+        <div class="info-row"><div class="info-icon">📱</div><div><div class="info-label">手機</div><div class="info-val" id="di-ph">0912-345-678</div></div></div>
+        <div class="info-row"><div class="info-icon">✉️</div><div><div class="info-label">電子郵件</div><div class="info-val" id="di-em">liang@mediatek.com</div></div></div>
+        <div class="info-row"><div class="info-icon">🌐</div><div><div class="info-label">網站</div><div class="info-val" id="di-wb">www.mediatek.com</div></div></div>
+      </div>
+
+      <div class="info-sec">
+        <h3>備註標籤</h3>
+        <div class="tags" id="di-tags"></div>
+      </div>
+
+      <div style="padding-bottom: calc(20px + var(--safe-bottom));"></div>
+    </div>
+
+    <div class="bottom-nav">
+      <button class="nav-btn" onclick="editCard()"><span class="ni">✏️</span>編輯</button>
+      <button class="nav-btn" onclick="shareCard()"><span class="ni">📤</span>分享</button>
+      <button class="nav-btn" onclick="starCard()"><span class="ni">⭐</span>收藏</button>
+      <button class="nav-btn" style="color:#FF3B30;" onclick="deleteCard()"><span class="ni">🗑️</span>刪除</button>
+    </div>
+  </div>
+
+  <!-- ═══ VIEW: SCAN ═══ -->
+  <div class="view off-right scan-view" id="v-scan">
+    <div class="sb-space" style="background:#111;"></div>
+    <div class="scan-head">
+      <div class="back-row" style="margin-bottom:0;" onclick="goBack()">
+        <span>‹</span>
+      </div>
+      <h2>掃描名片</h2>
+    </div>
+
+    <div class="viewfinder">
+      <div class="vf-overlay">
+        <div class="vf-card-mock" id="scan-card">
+          <div class="vm-name">陳志明</div>
+          <div class="vm-title">Senior Software Engineer</div>
+          <div class="vm-co">台積電 TSMC</div>
+          <div class="vm-info">📱 0987-654-321<br>✉️ chen@tsmc.com<br>📍 新竹科學園區</div>
+          <div class="scan-line"></div>
+        </div>
+      </div>
+      <div class="corners">
+        <div class="corners-inner">
+          <div class="corner c-tl"></div>
+          <div class="corner c-tr"></div>
+          <div class="corner c-bl"></div>
+          <div class="corner c-br"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scan-bottom">
+      <div class="scan-tip">將名片置於框內，自動辨識文字 · 支援中英日文</div>
+      <div class="shutter-wrap">
+        <button class="shutter" onclick="doScan()">📷</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ VIEW: ADD CARD ═══ -->
+  <div class="view off-right" id="v-add">
+    <div class="sb-space"></div>
+    <div class="form-head">
+      <div class="back-row" onclick="goBack()"><span>‹</span><p>取消</p></div>
+      <h2>新增名片</h2>
+    </div>
+    <div class="scroll">
+      <div class="form-body">
+        <div class="field-group">
+          <h3>基本資訊</h3>
+          <div class="field"><span class="field-icon">👤</span><input type="text" id="f-name" placeholder="姓名"></div>
+          <div class="field"><span class="field-icon">💼</span><input type="text" id="f-title" placeholder="職稱"></div>
+          <div class="field"><span class="field-icon">🏢</span><input type="text" id="f-co" placeholder="公司名稱"></div>
+        </div>
+        <div class="field-group">
+          <h3>聯絡方式</h3>
+          <div class="field"><span class="field-icon">📱</span><input type="tel" id="f-ph" placeholder="手機號碼"></div>
+          <div class="field"><span class="field-icon">✉️</span><input type="email" id="f-em" placeholder="電子郵件"></div>
+          <div class="field"><span class="field-icon">🌐</span><input type="url" id="f-wb" placeholder="網站"></div>
+        </div>
+        <div class="field-group">
+          <h3>備註</h3>
+          <div class="field"><span class="field-icon">📝</span><textarea id="f-note" placeholder="備註、認識場合..." rows="3" style="padding:8px 0;"></textarea></div>
+        </div>
+        <div style="height:80px;"></div>
+      </div>
+    </div>
+    <button class="save-btn" onclick="saveCard()">✅ 儲存名片</button>
+  </div>
+
+  <!-- ═══ VIEW: PROFILE ═══ -->
+  <div class="view off-right" id="v-profile">
+    <div class="sb-space"></div>
+    <div class="profile-head">
+      <div style="display:flex; justify-content:flex-end;">
+        <button class="icon-btn" onclick="goBack()">✕</button>
+      </div>
+      <div class="profile-av">王</div>
+      <div class="profile-name">王小明</div>
+      <div class="profile-role">產品設計師 · 設計公司</div>
+    </div>
+    <div class="scroll">
+      <div class="qr-card">
+        <div class="qr-box">📱</div>
+        <div class="qr-desc">掃描 QR Code 交換名片</div>
+      </div>
+      <div class="menu-item" onclick="showToast('✏️ 開啟編輯')"><div class="menu-icon">✏️</div><div class="menu-label">編輯我的名片</div><div class="menu-arrow">›</div></div>
+      <div class="menu-item" onclick="showGuide()"><div class="menu-icon">📲</div><div class="menu-label">加入主畫面（安裝APP）</div><div class="menu-arrow">›</div></div>
+      <div class="menu-item" onclick="showToast('🔒 已開啟雲端備份')"><div class="menu-icon">☁️</div><div class="menu-label">雲端備份</div><div class="menu-arrow">›</div></div>
+      <div class="menu-item" onclick="showToast('📊 匯出 CSV 中...')"><div class="menu-icon">📊</div><div class="menu-label">匯出聯絡人</div><div class="menu-arrow">›</div></div>
+      <div style="padding-bottom: calc(24px + var(--safe-bottom));"></div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- iOS INSTALL GUIDE -->
+<div class="ios-guide" id="ios-guide" onclick="closeGuide()">
+  <div class="ios-guide-card" onclick="event.stopPropagation()">
+    <h2 style="font-size:18px; font-weight:700; color:var(--dark); margin-bottom:16px;">📲 加入 iPhone 主畫面</h2>
+    <div class="ios-step">
+      <div class="ios-step-num">1</div>
+      <p>點擊 Safari 底部的 <strong>「分享」</strong> 按鈕 <strong>⎙</strong></p>
+    </div>
+    <div class="ios-step">
+      <div class="ios-step-num">2</div>
+      <p>向下滑動，選擇 <strong>「加入主畫面」</strong></p>
+    </div>
+    <div class="ios-step">
+      <div class="ios-step-num">3</div>
+      <p>點擊右上角 <strong>「新增」</strong> 完成安裝</p>
+    </div>
+    <button onclick="closeGuide()" style="width:100%; margin-top:16px; background:var(--orange); color:white; border:none; border-radius:14px; padding:14px; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer;">了解了</button>
+  </div>
+</div>
+
+<script>
+// ── DATA ──
+const COLORS = [
+  'linear-gradient(135deg,#F26522,#FF8C42)',
+  'linear-gradient(135deg,#2196F3,#21CBF3)',
+  'linear-gradient(135deg,#9C27B0,#CE93D8)',
+  'linear-gradient(135deg,#4CAF50,#8BC34A)',
+  'linear-gradient(135deg,#FF5722,#FF8A65)',
+  'linear-gradient(135deg,#00BCD4,#4DD0E1)',
+  'linear-gradient(135deg,#607D8B,#90A4AE)',
+];
+
+let cards = JSON.parse(localStorage.getItem('cards') || 'null') || [
+  {id:1, name:'梁伯萬', title:'業務總監', co:'聯發科技股份有限公司', ph:'0912-345-678', em:'liang@mediatek.com', wb:'www.mediatek.com', tags:['科技業','半導體','重要客戶'], color:0},
+  {id:2, name:'劉惠康', title:'產品經理', co:'HTC', ph:'0922-111-222', em:'liu@htc.com', wb:'www.htc.com', tags:['手機','消費電子'], color:1},
+  {id:3, name:'李弼康', title:'副總裁', co:'安聯企業管理股份有限公司', ph:'0933-444-555', em:'lee@allianz.com.tw', wb:'www.allianz.com.tw', tags:['金融','保險'], color:2},
+  {id:4, name:'葛如鈞', title:'執行長', co:'立創科技', ph:'0944-777-888', em:'ke@lipro.com', wb:'www.lipro.com', tags:['新創','AI'], color:3},
+  {id:5, name:'瞿志鵬', title:'總經理', co:'木新橋股份有限公司', ph:'0955-999-000', em:'chu@muxin.com', wb:'www.muxin.com', tags:['製造業'], color:4},
+  {id:6, name:'柯佑全', title:'技術總監', co:'友達光電股份有限公司', ph:'0966-222-333', em:'kuo@auo.com', wb:'www.auo.com', tags:['面板','科技業'], color:5},
+];
+
+let currentView = 'v-list';
+let viewStack = [];
+let currentCard = null;
+
+function saveData() { localStorage.setItem('cards', JSON.stringify(cards)); }
+
+// ── VIEW NAVIGATION ──
+function showView(id) {
+  const curr = document.getElementById(currentView);
+  const next = document.getElementById(id);
+  curr.classList.add('off-left');
+  next.classList.remove('off-right');
+  viewStack.push(currentView);
+  currentView = id;
+}
+
+function goBack() {
+  if (!viewStack.length) return;
+  const prev = viewStack.pop();
+  const curr = document.getElementById(currentView);
+  const prevEl = document.getElementById(prev);
+  curr.classList.add('off-right');
+  prevEl.classList.remove('off-left');
+  currentView = prev;
+}
+
+function switchTab(tab) {
+  if (tab === 1) {
+    showView('v-profile');
+  }
+}
+
+// ── RENDER CARD LIST ──
+function renderList(q = '') {
+  const list = document.getElementById('card-list');
+  const empty = document.getElementById('empty-state');
+  const filtered = q ? cards.filter(c =>
+    c.name.includes(q) || c.co.toLowerCase().includes(q.toLowerCase()) || c.title.includes(q)
+  ) : cards;
+
+  document.getElementById('total-count').textContent = cards.length;
+
+  if (!filtered.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  list.innerHTML = filtered.map((c, i) => `
+    <div class="card-item" style="animation-delay:${i * 0.05}s" onclick="openCard(${c.id})">
+      <div class="av" style="background:${COLORS[c.color % COLORS.length]}">${c.name[0]}</div>
+      <div class="ci">
+        <div class="ci-name">${c.name}</div>
+        <div class="ci-title">${c.title}</div>
+        <div class="ci-co">${c.co}</div>
+      </div>
+      <div class="chevron">›</div>
+    </div>
+  `).join('');
+}
+
+// ── OPEN DETAIL ──
+function openCard(id) {
+  currentCard = cards.find(c => c.id === id);
+  if (!currentCard) return;
+  const c = currentCard;
+  const av = document.getElementById('d-av');
+  av.textContent = c.name[0];
+  av.style.background = COLORS[c.color % COLORS.length];
+  document.getElementById('d-name').textContent = c.name;
+  document.getElementById('d-role').textContent = c.title + ' · ' + c.co;
+  document.getElementById('cv-name').textContent = c.name;
+  document.getElementById('cv-title').textContent = c.title;
+  document.getElementById('cv-co').textContent = c.co;
+  document.getElementById('di-name').textContent = c.name;
+  document.getElementById('di-title').textContent = c.title;
+  document.getElementById('di-co').textContent = c.co;
+  document.getElementById('di-ph').textContent = c.ph;
+  document.getElementById('di-em').textContent = c.em;
+  document.getElementById('di-wb').textContent = c.wb;
+  document.getElementById('di-tags').innerHTML = (c.tags||[]).map(t => `<span class="tag">${t}</span>`).join('');
+  showView('v-detail');
+}
+
+// ── DETAIL ACTIONS ──
+function doCall() {
+  if (currentCard) window.location.href = 'tel:' + currentCard.ph.replace(/-/g,'');
+}
+function doMail() {
+  if (currentCard) window.location.href = 'mailto:' + currentCard.em;
+}
+function shareCard() {
+  if (navigator.share && currentCard) {
+    navigator.share({ title: currentCard.name, text: `${currentCard.name} | ${currentCard.title} | ${currentCard.co}\n📱 ${currentCard.ph}\n✉️ ${currentCard.em}` });
+  } else showToast('📤 已複製聯絡資訊');
+}
+function starCard() { showToast('⭐ 已加入收藏'); }
+function editCard() { showToast('✏️ 編輯功能開發中'); }
+function deleteCard() {
+  if (!currentCard) return;
+  if (confirm(`確定要刪除「${currentCard.name}」的名片嗎？`)) {
+    cards = cards.filter(c => c.id !== currentCard.id);
+    saveData(); renderList();
+    goBack();
+    showToast('🗑️ 名片已刪除');
+  }
+}
+
+// ── SCAN ──
+function doScan() {
+  const btn = document.querySelector('.shutter');
+  btn.style.transform = 'scale(0.85)';
+  setTimeout(() => { btn.style.transform = ''; }, 200);
+  showToast('✅ 辨識成功！');
+  setTimeout(() => {
+    // Auto-add scanned card
+    cards.unshift({ id: Date.now(), name:'陳志明', title:'Senior Software Engineer', co:'台積電 TSMC', ph:'0987-654-321', em:'chen@tsmc.com', wb:'www.tsmc.com', tags:['半導體','工程師'], color: Math.floor(Math.random()*COLORS.length) });
+    saveData(); renderList();
+    goBack();
+    showToast('📇 名片已儲存');
+  }, 1400);
+}
+
+// ── SAVE NEW CARD ──
+function saveCard() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { showToast('⚠️ 請輸入姓名'); return; }
+  const card = {
+    id: Date.now(),
+    name,
+    title: document.getElementById('f-title').value.trim() || '未填',
+    co: document.getElementById('f-co').value.trim() || '未填',
+    ph: document.getElementById('f-ph').value.trim(),
+    em: document.getElementById('f-em').value.trim(),
+    wb: document.getElementById('f-wb').value.trim(),
+    tags: [],
+    color: Math.floor(Math.random() * COLORS.length)
+  };
+  cards.unshift(card);
+  saveData(); renderList();
+  ['f-name','f-title','f-co','f-ph','f-em','f-wb','f-note'].forEach(id => { document.getElementById(id).value = ''; });
+  goBack();
+  showToast('✅ 名片已儲存！');
+}
+
+// ── TOAST ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── iOS GUIDE ──
+function showGuide() { document.getElementById('ios-guide').classList.add('show'); }
+function closeGuide() { document.getElementById('ios-guide').classList.remove('show'); }
+
+// ── SEARCH ──
+document.getElementById('search-q').addEventListener('input', e => renderList(e.target.value));
+
+// ── SERVICE WORKER ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+
+// ── INIT ──
+renderList();
+</script>
+</body>
+</html>
